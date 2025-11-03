@@ -1,0 +1,65 @@
+
+
+# 📘 **man_1_simple_shell**
+```man
+.TH simple_shell 1 "November 2025" "Holberton School" "User Commands"
+.SH NAME
+simple_shell \- a simple UNIX command line interpreter written in C
+.SH SYNOPSIS
+.B simple_shell
+.br
+Run in interactive or non-interactive mode to execute UNIX commands.
+.SH DESCRIPTION
+The
+.B simple_shell
+program is a lightweight implementation of a UNIX shell.
+It reads user commands, parses them, and executes corresponding programs using
+system calls such as
+.B fork,
+.B execve,
+and
+.B wait.
+
+It supports both interactive (prompt) mode and non-interactive (pipe/file input) mode.
+
+.SH BUILTINS
+.TP
+.B exit
+Exit the shell.
+.TP
+.B env
+Display the current environment variables.
+
+.SH FEATURES
+- Executes external commands using PATH.
+- Handles arguments.
+- Handles End-Of-File (Ctrl+D).
+- Provides error messages similar to /bin/sh.
+- Supports both interactive and non-interactive execution.
+
+.SH EXAMPLES
+Interactive mode:
+.PP
+.nf
+$ ./hsh
+($) /bin/ls
+main.c shell.c README.md
+($) exit
+.fi
+.PP
+Non-interactive mode:
+.PP
+.nf
+$ echo "/bin/ls" | ./hsh
+main.c shell.c README.md
+.fi
+
+.SH EXIT STATUS
+Returns the exit status of the last executed command.
+
+.SH AUTHORS
+Fahad Abdulaziz Alghamdi <https://github.com/Fahad-9195>  
+Nabel Nasser Aldwese <https://github.com/Nabelaldwese>
+
+.SH COPYRIGHT
+Holberton School © 2025. For educational purposes only.

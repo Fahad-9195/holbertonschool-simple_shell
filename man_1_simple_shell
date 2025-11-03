@@ -1,6 +1,6 @@
 
 
-# 📘 **man_1_simple_shell**
+# man_1_simple_shell
 ```man
 .TH simple_shell 1 "November 2025" "Holberton School" "User Commands"
 .SH NAME

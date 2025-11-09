@@ -41,23 +41,36 @@ static char *_sanitize_line(char *s)
 }
 
 /**
- * _execute_oneword - fork/exec a single-word command without PATH
- * @cmd: command path (absolute/relative) already sanitized
+ * _execute_line - fork/exec command line (no PATH), split by spaces/tabs
+ * @line: sanitized command line (will be tokenized in-place)
  * @progname: argv[0] for perror prefix
  *
  * Return: child's exit status (0..255), or 127 on exec error
+ *
+ * Note: Very simple tokenizer, no quotes or escapes per 0.1 constraints.
  */
-static int _execute_oneword(char *cmd, char *progname)
+static int _execute_line(char *line, char *progname)
 {
+	char *argvv[256];
+	size_t i = 0;
 	pid_t pid;
 	int status = 0;
-	char *argvv[2];
+	char *tok;
 
-	if (!cmd || *cmd == '\0')
+	if (!line || *line == '\0')
 		return (0);
 
-	argvv[0] = cmd;
-	argvv[1] = NULL;
+	/* tokenize by spaces/tabs only */
+	tok = strtok(line, " \t");
+	while (tok && i + 1 < (sizeof(argvv) / sizeof(argvv[0])))
+	{
+		argvv[i++] = tok;
+		tok = strtok(NULL, " \t");
+	}
+	argvv[i] = NULL;
+
+	if (i == 0)
+		return (0);
 
 	pid = fork();
 	if (pid == -1)
@@ -67,7 +80,8 @@ static int _execute_oneword(char *cmd, char *progname)
 	}
 	if (pid == 0)
 	{
-		if (execve(cmd, argvv, environ) == -1)
+		/* No PATH resolution in 0.1: exec only exact path in argvv[0] */
+		if (execve(argvv[0], argvv, environ) == -1)
 		{
 			perror(progname);
 			_exit(127);
@@ -83,14 +97,14 @@ static int _execute_oneword(char *cmd, char *progname)
 }
 
 /**
- * run_shell - Main loop: prompt, read, sanitize, run single-word command
+ * run_shell - Main loop: prompt, read, sanitize, exec with argv
  * @progname: argv[0]
  *
  * Return: last exit status
  */
 int run_shell(char *progname)
 {
-	char *line = NULL, *cmd;
+	char *line = NULL, *cmdline;
 	size_t n = 0;
 	ssize_t r;
 	int status = 0;
@@ -106,12 +120,11 @@ int run_shell(char *progname)
 			break;
 		}
 
-		cmd = _sanitize_line(line);
-		if (!cmd || cmd[0] == '\0')
+		cmdline = _sanitize_line(line);
+		if (!cmdline || cmdline[0] == '\0')
 			continue;
 
-		/* 0.1: treat whole line as the single command */
-		status = _execute_oneword(cmd, progname);
+		status = _execute_line(cmdline, progname);
 	}
 	free(line);
 	return (status);

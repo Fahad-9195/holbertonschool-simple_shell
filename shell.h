@@ -11,15 +11,20 @@
 
 extern char **environ;
 
-/* Prompt used in interactive mode */
 #define PROMPT "#cisfun$ "
+#define ARGV_MAX 256
 
-/**
- * run_shell - Main REPL loop (interactive & non-interactive)
- * @progname: program name (argv[0]) used in error messages
- *
- * Return: last child exit status or 0
- */
+/* tokenizer.c */
+char *sanitize_line(char *s);
+int build_argv(char *line, char **argv, size_t max);
+
+/* path.c */
+char *resolve_cmd(const char *cmd);
+
+/* errors.c */
+void print_not_found(const char *prog, unsigned long n, const char *cmd);
+
+/* main.c */
 int run_shell(char *progname);
 
 #endif /* SHELL_H */

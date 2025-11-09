@@ -1,10 +1,3 @@
-/**
- * main - Entry point for the simple shell program
- * @argc: argument count
- * @argv: argument vector
- *
- * Return: process exit status (0 on success)
- */
 #include "shell.h"
 #include <unistd.h>
 
@@ -20,6 +13,13 @@ int run_shell(char *progname)
 	return (0);
 }
 
+/**
+ * main - Entry point for the simple shell program
+ * @argc: argument count
+ * @argv: argument vector
+ *
+ * Return: process exit status (0 on success)
+ */
 int main(int argc, char **argv)
 {
 	(void)argc;

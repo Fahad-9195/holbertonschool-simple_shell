@@ -1,9 +1,7 @@
 CC      := gcc
 CFLAGS  := -Wall -Werror -Wextra -pedantic -std=gnu89
 NAME    := hsh
-
-# خذ كل ملفات C الموجودة تلقائياً (حتى لو ما عندك غير main.c)
-SRC     := $(wildcard *.c)
+SRC     := main.c
 
 .PHONY: all clean fclean re betty
 
@@ -20,11 +18,6 @@ fclean: clean
 
 re: fclean all
 
-# هدف betty آمن حتى لو ما فيه *.c/*.h
 betty:
 	@files="$(wildcard *.c) $(wildcard *.h)"; \
-	if [ -z "$$files" ]; then \
-		echo "No C/H files to check."; \
-	else \
-		betty $$files; \
-	fi
+	if [ -z "$$files" ]; then echo "No C/H files to check."; else betty $$files; fi

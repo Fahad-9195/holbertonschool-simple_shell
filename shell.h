@@ -2,12 +2,23 @@
 #define SHELL_H
 
 #include <stdio.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <string.h>
+#include <sys/types.h>
+#include <sys/wait.h>
+#include <errno.h>
+
+extern char **environ;
+
+/* Prompt used in interactive mode */
+#define PROMPT "#cisfun$ "
 
 /**
- * run_shell - Entry point to the shell REPL (stub for now)
- * @progname: program name (argv[0])
+ * run_shell - Main REPL loop (interactive & non-interactive)
+ * @progname: program name (argv[0]) used in error messages
  *
- * Return: exit status code
+ * Return: last child exit status or 0
  */
 int run_shell(char *progname);
 

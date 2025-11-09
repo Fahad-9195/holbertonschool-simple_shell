@@ -1,15 +1,6 @@
 #include "shell.h"
 
 /**
- * _print_prompt - print prompt if running interactively
- */
-static void _print_prompt(void)
-{
-	if (isatty(STDIN_FILENO))
-		write(STDOUT_FILENO, PROMPT, sizeof(PROMPT) - 1);
-}
-
-/**
  * _sanitize_line - trim trailing newline and outer spaces/tabs
  * @s: line from getline (modified in-place)
  *
@@ -41,21 +32,102 @@ static char *_sanitize_line(char *s)
 }
 
 /**
- * _execute_line - fork/exec command line (no PATH), split by spaces/tabs
- * @line: sanitized command line (will be tokenized in-place)
+ * _resolve_cmd - resolve argv[0] using PATH (or direct path if contains '/')
+ * @cmd: command name from argv[0]
+ *
+ * Return: malloc'ed full path to executable, or NULL if not found
+ *
+ * Note: Caller must free the returned pointer if not NULL.
+ */
+static char *_resolve_cmd(const char *cmd)
+{
+	char *path_env = NULL, *copy = NULL, *dir = NULL, *full = NULL;
+	size_t i, dlen, clen;
+
+	if (!cmd || *cmd == '\0')
+		return (NULL);
+
+	/* If command has a slash, try it directly (no PATH search) */
+	for (i = 0; cmd[i]; i++)
+		if (cmd[i] == '/')
+		{
+			clen = strlen(cmd);
+			full = malloc(clen + 1);
+			if (!full)
+				return (NULL);
+			memcpy(full, cmd, clen + 1);
+			if (access(full, X_OK) == 0)
+				return (full);
+			free(full);
+			errno = ENOENT;
+			return (NULL);
+		}
+
+	/* Find PATH in environ */
+	for (i = 0; environ && environ[i]; i++)
+	{
+		if (strncmp(environ[i], "PATH=", 5) == 0)
+		{
+			path_env = environ[i] + 5;
+			break;
+		}
+	}
+	if (!path_env || *path_env == '\0')
+	{
+		errno = ENOENT;
+		return (NULL);
+	}
+
+	/* Work on a copy of PATH because strtok modifies the string */
+	copy = malloc(strlen(path_env) + 1);
+	if (!copy)
+		return (NULL);
+	memcpy(copy, path_env, strlen(path_env) + 1);
+
+	clen = strlen(cmd);
+	dir = strtok(copy, ":");
+	while (dir)
+	{
+		dlen = strlen(dir);
+		/* allocate "dir" + "/" + "cmd" + NUL */
+		full = malloc(dlen + 1 + clen + 1);
+		if (!full)
+		{
+			free(copy);
+			return (NULL);
+		}
+		memcpy(full, dir, dlen);
+		full[dlen] = '/';
+		memcpy(full + dlen + 1, cmd, clen + 1);
+
+		if (access(full, X_OK) == 0)
+		{
+			free(copy);
+			return (full);
+		}
+		free(full);
+		dir = strtok(NULL, ":");
+	}
+	free(copy);
+	errno = ENOENT;
+	return (NULL);
+}
+
+/**
+ * _execute_line - fork/exec command line, with PATH resolution
+ * @line: sanitized command line (tokenized in-place)
  * @progname: argv[0] for perror prefix
  *
- * Return: child's exit status (0..255), or 127 on exec error
+ * Return: child's exit status (0..255), or 127 if command not found
  *
- * Note: Very simple tokenizer, no quotes or escapes per 0.1 constraints.
+ * Note: Very simple tokenizer (spaces/tabs only), no quotes/escapes here.
  */
 static int _execute_line(char *line, char *progname)
 {
-	char *argvv[256];
+	char *argvv[256], *tok, *full = NULL;
 	size_t i = 0;
 	pid_t pid;
 	int status = 0;
-	char *tok;
 
 	if (!line || *line == '\0')
 		return (0);
@@ -72,32 +144,41 @@ static int _execute_line(char *line, char *progname)
 	if (i == 0)
 		return (0);
 
+	/* Resolve command before forking; do not fork if not found */
+	full = _resolve_cmd(argvv[0]);
+	if (!full)
+	{
+		perror(progname);
+		return (127);
+	}
+
 	pid = fork();
 	if (pid == -1)
 	{
 		perror(progname);
+		free(full);
 		return (1);
 	}
 	if (pid == 0)
 	{
-		/* No PATH resolution in 0.1: exec only exact path in argvv[0] */
+		argvv[0] = full; /* use resolved path */
 		if (execve(argvv[0], argvv, environ) == -1)
 		{
 			perror(progname);
-			_exit(127);
+			__builtin_unreachable();
 		}
-		_exit(0);
 	}
 	if (waitpid(pid, &status, 0) == -1)
 		perror(progname);
 
+	free(full);
 	if (WIFEXITED(status))
 		return (WEXITSTATUS(status));
 	return (0);
 }
 
 /**
- * run_shell - Main loop: prompt, read, sanitize, exec with argv
+ * run_shell - Main loop: prompt, read, sanitize, resolve PATH, exec
  * @progname: argv[0]
  *
  * Return: last exit status
@@ -111,7 +192,9 @@ int run_shell(char *progname)
 
 	while (1)
 	{
-		_print_prompt();
+		if (isatty(STDIN_FILENO))
+			write(STDOUT_FILENO, PROMPT, sizeof(PROMPT) - 1);
+
 		r = getline(&line, &n, stdin);
 		if (r == -1)
 		{

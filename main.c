@@ -13,16 +13,13 @@ static char *_sanitize_line(char *s)
 	if (!s)
 		return (NULL);
 
-	/* strip trailing newline */
 	end = strlen(s);
 	if (end && s[end - 1] == '\n')
 		s[--end] = '\0';
 
-	/* skip leading spaces/tabs */
 	while (s[i] == ' ' || s[i] == '\t')
 		i++;
 
-	/* trim trailing spaces/tabs */
 	end = strlen(s + i);
 	while (end && (s[i + end - 1] == ' ' || s[i + end - 1] == '\t'))
 		end--;
@@ -49,6 +46,7 @@ static char *_resolve_cmd(const char *cmd)
 
 	/* If command has a slash, try it directly (no PATH search) */
 	for (i = 0; cmd[i]; i++)
+	{
 		if (cmd[i] == '/')
 		{
 			clen = strlen(cmd);
@@ -62,8 +60,9 @@ static char *_resolve_cmd(const char *cmd)
 			errno = ENOENT;
 			return (NULL);
 		}
+	}
 
-	/* Find PATH in environ */
+	/* Locate PATH in environ */
 	for (i = 0; environ && environ[i]; i++)
 	{
 		if (strncmp(environ[i], "PATH=", 5) == 0)
@@ -89,7 +88,7 @@ static char *_resolve_cmd(const char *cmd)
 	while (dir)
 	{
 		dlen = strlen(dir);
-		/* allocate "dir" + "/" + "cmd" + NUL */
+		/* build dir + "/" + cmd + NUL */
 		full = malloc(dlen + 1 + clen + 1);
 		if (!full)
 		{
@@ -116,13 +115,12 @@ static char *_resolve_cmd(const char *cmd)
 /**
  * _execute_line - fork/exec command line, with PATH resolution
  * @line: sanitized command line (tokenized in-place)
- * @progname: argv[0] for perror prefix
+ * @progname: argv[0] for error prefix
+ * @cmd_no: 1-based command index for error printing
  *
  * Return: child's exit status (0..255), or 127 if command not found
- *
- * Note: Very simple tokenizer (spaces/tabs only), no quotes/escapes here.
  */
-static int _execute_line(char *line, char *progname)
+static int _execute_line(char *line, char *progname, unsigned long cmd_no)
 {
 	char *argvv[256], *tok, *full = NULL;
 	size_t i = 0;
@@ -132,7 +130,7 @@ static int _execute_line(char *line, char *progname)
 	if (!line || *line == '\0')
 		return (0);
 
-	/* tokenize by spaces/tabs only */
+	/* tokenize by spaces/tabs only (no quotes/escapes in 0.3) */
 	tok = strtok(line, " \t");
 	while (tok && i + 1 < (sizeof(argvv) / sizeof(argvv[0])))
 	{
@@ -144,11 +142,18 @@ static int _execute_line(char *line, char *progname)
 	if (i == 0)
 		return (0);
 
-	/* Resolve command before forking; do not fork if not found */
+	/* Resolve before forking; if not found, print "<prog>: <n>: <cmd>: not found" */
 	full = _resolve_cmd(argvv[0]);
 	if (!full)
 	{
-		perror(progname);
+		char numbuf[32];
+		(void)sprintf(numbuf, "%lu", cmd_no);
+		write(STDERR_FILENO, progname, strlen(progname));
+		write(STDERR_FILENO, ": ", 2);
+		write(STDERR_FILENO, numbuf, strlen(numbuf));
+		write(STDERR_FILENO, ": ", 2);
+		write(STDERR_FILENO, argvv[0], strlen(argvv[0]));
+		write(STDERR_FILENO, ": not found\n", 12);
 		return (127);
 	}
 
@@ -165,8 +170,9 @@ static int _execute_line(char *line, char *progname)
 		if (execve(argvv[0], argvv, environ) == -1)
 		{
 			perror(progname);
-			__builtin_unreachable();
+			_exit(127);
 		}
+		_exit(0);
 	}
 	if (waitpid(pid, &status, 0) == -1)
 		perror(progname);
@@ -189,6 +195,7 @@ int run_shell(char *progname)
 	size_t n = 0;
 	ssize_t r;
 	int status = 0;
+	unsigned long cmd_no = 0;
 
 	while (1)
 	{
@@ -207,7 +214,8 @@ int run_shell(char *progname)
 		if (!cmdline || cmdline[0] == '\0')
 			continue;
 
-		status = _execute_line(cmdline, progname);
+		cmd_no++;
+		status = _execute_line(cmdline, progname, cmd_no);
 	}
 	free(line);
 	return (status);

@@ -46,20 +46,26 @@ static int spawn_exec(char **argvv, char *full, const char *prog)
 }
 
 /**
- * exec_line - tokenize, resolve PATH, and exec (no fork if missing)
+ * exec_line - tokenize, run builtins, resolve PATH, then exec
  * @line: sanitized line (modified in-place)
  * @prog: program name for errors
  * @n: 1-based command index for error printing
- * Return: child's exit status or 127 if not found
+ * @want_exit: set to 1 if "exit" builtin requested
+ * Return: status code (0..255), or 127 if not found
  */
-static int exec_line(char *line, const char *prog, unsigned long n)
+static int exec_line(char *line, const char *prog,
+		     unsigned long n, int *want_exit)
 {
 	char *argvv[ARGV_MAX], *full;
-	int argc, status;
+	int argc, handled, status_builtin = 0;
 
 	argc = build_argv(line, argvv, ARGV_MAX);
 	if (argc == 0)
 		return (0);
+
+	handled = handle_builtins(argvv, want_exit, &status_builtin);
+	if (handled)
+		return (status_builtin);
 
 	full = resolve_cmd(argvv[0]);
 	if (!full)
@@ -68,13 +74,17 @@ static int exec_line(char *line, const char *prog, unsigned long n)
 		return (127);
 	}
 
-	status = spawn_exec(argvv, full, prog);
-	free(full);
-	return (status);
+	/* normal exec path */
+	{
+		int st = spawn_exec(argvv, full, prog);
+
+		free(full);
+		return (st);
+	}
 }
 
 /**
- * run_shell - prompt/read/exec loop (+ exit builtin)
+ * run_shell - prompt/read/exec loop
  * @progname: argv[0]
  * Return: last status
  */
@@ -83,7 +93,7 @@ int run_shell(char *progname)
 	char *line = NULL, *cmdline;
 	size_t n = 0;
 	ssize_t r;
-	int status = 0;
+	int status = 0, should_exit = 0;
 	unsigned long cmd_no = 0;
 
 	while (1)
@@ -101,15 +111,10 @@ int run_shell(char *progname)
 		if (!cmdline || cmdline[0] == '\0')
 			continue;
 
-		/* 0.4: exit builtin (no args required) */
-		if (strcmp(cmdline, "exit") == 0)
-		{
-			free(line);
-			return (status); /* exit with last status */
-		}
-
 		cmd_no++;
-		status = exec_line(cmdline, progname, cmd_no);
+		status = exec_line(cmdline, progname, cmd_no, &should_exit);
+		if (should_exit)
+			break;
 	}
 	free(line);
 	return (status);

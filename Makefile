@@ -1,7 +1,7 @@
 CC      := gcc
 CFLAGS  := -Wall -Werror -Wextra -pedantic -std=gnu89
 NAME    := hsh
-SRC     := main.c tokenizer.c path.c errors.c
+SRC     := main.c tokenizer.c path.c errors.c builtins.c
 OBJ     := $(SRC:.c=.o)
 
 .PHONY: all clean fclean re betty

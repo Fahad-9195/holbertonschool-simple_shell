@@ -24,6 +24,10 @@ char *resolve_cmd(const char *cmd);
 /* errors.c */
 void print_not_found(const char *prog, unsigned long n, const char *cmd);
 
+/* builtins.c */
+int handle_builtins(char **argv, int *should_exit, int *status_out);
+void builtin_env(void);
+
 /* main.c */
 int run_shell(char *progname);
 

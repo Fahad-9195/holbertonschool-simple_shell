@@ -10,11 +10,7 @@ static void _print_prompt(void)
 }
 
 /**
- * spawn_exec - fork and exec using a resolved full path
- * @argvv: argument vector (argv[0] will be replaced by full)
- * @full: resolved absolute path to executable
- * @prog: program name for perror
- * Return: child's exit status (0..255) or 1 on fork error
+ * spawn_exec - fork and exec using resolved full path
  */
 static int spawn_exec(char **argvv, char *full, const char *prog)
 {
@@ -46,11 +42,7 @@ static int spawn_exec(char **argvv, char *full, const char *prog)
 }
 
 /**
- * exec_line - tokenize, resolve PATH, and exec (no fork if missing)
- * @line: sanitized line (modified in-place)
- * @prog: program name for errors
- * @n: 1-based command index for error printing
- * Return: child's exit status or 127 if not found
+ * exec_line - tokenize, resolve PATH, exec or handle built-ins
  */
 static int exec_line(char *line, const char *prog, unsigned long n)
 {
@@ -60,6 +52,10 @@ static int exec_line(char *line, const char *prog, unsigned long n)
 	argc = build_argv(line, argvv, ARGV_MAX);
 	if (argc == 0)
 		return (0);
+
+	/* BUILT-IN: exit */
+	if (strcmp(argvv[0], "exit") == 0)
+		exit(0);
 
 	full = resolve_cmd(argvv[0]);
 	if (!full)
@@ -74,9 +70,7 @@ static int exec_line(char *line, const char *prog, unsigned long n)
 }
 
 /**
- * run_shell - prompt/read/exec loop
- * @progname: argv[0]
- * Return: last status
+ * run_shell - main loop
  */
 int run_shell(char *progname)
 {
@@ -96,11 +90,9 @@ int run_shell(char *progname)
 				write(STDOUT_FILENO, "\n", 1);
 			break;
 		}
-
 		cmdline = sanitize_line(line);
 		if (!cmdline || cmdline[0] == '\0')
 			continue;
-
 		cmd_no++;
 		status = exec_line(cmdline, progname, cmd_no);
 	}
@@ -110,9 +102,6 @@ int run_shell(char *progname)
 
 /**
  * main - Entry
- * @argc: arg count
- * @argv: arg vector
- * Return: exit status
  */
 int main(int argc, char **argv)
 {

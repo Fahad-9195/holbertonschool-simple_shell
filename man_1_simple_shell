@@ -1,4 +1,3 @@
-cat > man_1_simple_shell << "EOF"
 .TH simple_shell 1 "Holberton School" "Simple Shell Manual"
 .SH NAME
 simple_shell \- a simple UNIX command line interpreter written in C
@@ -60,4 +59,3 @@ Nabel Nasser Aldwese
 
 .SH COPYRIGHT
 This program is licensed for educational use only.
-EOF

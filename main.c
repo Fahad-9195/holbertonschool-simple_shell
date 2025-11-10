@@ -46,40 +46,50 @@ static int spawn_exec(char **argvv, char *full, const char *prog)
 }
 
 /**
- * exec_line - tokenize, run builtins, resolve PATH, then exec
+ * exec_line - tokenize, handle builtins, resolve PATH, and exec
  * @line: sanitized line (modified in-place)
  * @prog: program name for errors
  * @n: 1-based command index for error printing
- * @want_exit: set to 1 if "exit" builtin requested
- * Return: status code (0..255), or 127 if not found
+ * Return: child's exit status, 127 if not found, or -1 if "exit" builtin
  */
-static int exec_line(char *line, const char *prog,
-		     unsigned long n, int *want_exit)
+static int exec_line(char *line, const char *prog, unsigned long n)
 {
 	char *argvv[ARGV_MAX], *full;
-	int argc, handled, status_builtin = 0;
+	int argc;
 
 	argc = build_argv(line, argvv, ARGV_MAX);
 	if (argc == 0)
 		return (0);
 
-	handled = handle_builtins(argvv, want_exit, &status_builtin);
-	if (handled)
-		return (status_builtin);
+	/* builtin: exit (no args required/handled) */
+	if (strcmp(argvv[0], "exit") == 0)
+		return (-1);
 
+	/* builtin: env */
+	if (strcmp(argvv[0], "env") == 0)
+	{
+		size_t i;
+
+		for (i = 0; environ && environ[i]; i++)
+		{
+			/* each VAR=VALUE line */
+			write(STDOUT_FILENO, environ[i], strlen(environ[i]));
+			write(STDOUT_FILENO, "\n", 1);
+		}
+		return (0);
+	}
+
+	/* external: resolve via PATH (no fork if missing) */
 	full = resolve_cmd(argvv[0]);
 	if (!full)
 	{
 		print_not_found(prog, n, argvv[0]);
 		return (127);
 	}
-
-	/* normal exec path */
 	{
-		int st = spawn_exec(argvv, full, prog);
-
+		int status = spawn_exec(argvv, full, prog);
 		free(full);
-		return (st);
+		return (status);
 	}
 }
 
@@ -93,7 +103,7 @@ int run_shell(char *progname)
 	char *line = NULL, *cmdline;
 	size_t n = 0;
 	ssize_t r;
-	int status = 0, should_exit = 0;
+	int status = 0, ret;
 	unsigned long cmd_no = 0;
 
 	while (1)
@@ -112,9 +122,10 @@ int run_shell(char *progname)
 			continue;
 
 		cmd_no++;
-		status = exec_line(cmdline, progname, cmd_no, &should_exit);
-		if (should_exit)
+		ret = exec_line(cmdline, progname, cmd_no);
+		if (ret == -1)  /* exit builtin: keep current status and break */
 			break;
+		status = ret;
 	}
 	free(line);
 	return (status);

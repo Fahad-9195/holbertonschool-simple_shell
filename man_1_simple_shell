@@ -1,14 +1,11 @@
-
-
-# man_1_simple_shell
-```man
-.TH simple_shell 1 "November 2025" "Holberton School" "User Commands"
+cat > man_1_simple_shell << "EOF"
+.TH simple_shell 1 "Holberton School" "Simple Shell Manual"
 .SH NAME
 simple_shell \- a simple UNIX command line interpreter written in C
 .SH SYNOPSIS
 .B simple_shell
 .br
-Run in interactive or non-interactive mode to execute UNIX commands.
+Runs in interactive or non-interactive mode to execute UNIX commands.
 .SH DESCRIPTION
 The
 .B simple_shell
@@ -42,24 +39,25 @@ Interactive mode:
 .PP
 .nf
 $ ./hsh
-($) /bin/ls
-main.c shell.c README.md
-($) exit
+#cisfun$ /bin/ls
+main.c builtins.c shell.h
+#cisfun$ exit
 .fi
 .PP
 Non-interactive mode:
 .PP
 .nf
 $ echo "/bin/ls" | ./hsh
-main.c shell.c README.md
+main.c builtins.c shell.h
 .fi
 
 .SH EXIT STATUS
 Returns the exit status of the last executed command.
 
 .SH AUTHORS
-Fahad Abdulaziz Alghamdi <https://github.com/Fahad-9195>  
-Nabel Nasser Aldwese <https://github.com/Nabelaldwese>
+Fahad Abdulaziz Alghamdi
+Nabel Nasser Aldwese
 
 .SH COPYRIGHT
-Holberton School © 2025. For educational purposes only.
+This program is licensed for educational use only.
+EOF
